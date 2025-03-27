@@ -92,9 +92,9 @@ if 'df_raw' in locals():
             number_vals = df_raw[number_col].astype(str).str.strip()
             suffix_vals = df_raw[suffix_col].astype(str).str.strip()
 
-            # Correct logic: only include each part once
+            # Always combine fully unless any part is missing
             df_raw['Elector Number'] = [
-                f"{p}.{n}.{s}" if (p and n and s and p != n) else f"{p}.{s}"
+                f"{p}.{n}.{s}" if all([p, n, s]) else ""
                 for p, n, s in zip(prefix_vals, number_vals, suffix_vals)
             ]
             df_raw['Polling District'] = prefix_vals
