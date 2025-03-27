@@ -72,7 +72,7 @@ if 'df_raw' in locals():
     cols = df_raw.columns.tolist()
 
     prefix_col = detect_column(['prefix', 'ward'], cols)
-    number_col = detect_column(['number'], cols)
+    number_col = detect_column(['elector number', 'number'], cols)
     suffix_col = detect_column(['suffix'], cols)
     marker_col = detect_column(['marker', 'franchise'], cols)
     name_col = detect_column(['name'], cols)
@@ -87,10 +87,9 @@ if 'df_raw' in locals():
         number_vals = df_raw[number_col].astype(str).str.strip()
         suffix_vals = df_raw[suffix_col].astype(str).str.strip()
 
-        # Avoid duplicate values in Elector Number
+        # Properly combine Elector Number as Prefix.Number.Suffix
         df_raw['Elector Number'] = [
-            f"{p}.{n}.{s}" if p != n else f"{p}.{s}"
-            for p, n, s in zip(prefix_vals, number_vals, suffix_vals)
+            f"{p}.{n}.{s}" for p, n, s in zip(prefix_vals, number_vals, suffix_vals)
         ]
 
         df_raw['Polling District'] = df_raw[prefix_col].astype(str).str.strip()
