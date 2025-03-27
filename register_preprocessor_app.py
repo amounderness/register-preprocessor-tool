@@ -5,6 +5,8 @@ import pdfplumber
 import pytesseract
 from PIL import Image
 import io
+import platform
+import subprocess
 
 # -------------------------
 # Title and Instructions
@@ -46,11 +48,16 @@ elif input_method == "Upload PDF":
 elif input_method == "Upload Image (PNG/JPG)":
     image_file = st.file_uploader("Upload a scanned electoral register image (PNG or JPG)", type=["png", "jpg", "jpeg"])
     if image_file:
-        image = Image.open(image_file)
-        ocr_text = pytesseract.image_to_string(image)
-        rows = [line.split("\t") for line in ocr_text.split("\n") if line.strip()]
-        df_raw = pd.DataFrame(rows)
-        st.success("Image scanned and text extracted. Please review below.")
+        try:
+            if platform.system() == "Linux" and not subprocess.getoutput("which tesseract"):
+                raise FileNotFoundError("Tesseract is not available on this platform.")
+            image = Image.open(image_file)
+            ocr_text = pytesseract.image_to_string(image)
+            rows = [line.split("\t") for line in ocr_text.split("\n") if line.strip()]
+            df_raw = pd.DataFrame(rows)
+            st.success("Image scanned and text extracted. Please review below.")
+        except FileNotFoundError:
+            st.error("OCR is not available in this environment. Please run locally with Tesseract installed or use CSV/PDF.")
 
 elif input_method == "Paste Table":
     pasted = st.text_area("Paste your register table below:")
