@@ -39,11 +39,19 @@ if input_method == "Upload CSV":
 elif input_method == "Upload PDF":
     pdf_file = st.file_uploader("Upload scanned or digital electoral register PDF", type=["pdf"])
     if pdf_file:
-        with pdfplumber.open(pdf_file) as pdf:
-            text = "\n".join([page.extract_text() for page in pdf if page.extract_text()])
-        rows = [line.split("\t") for line in text.split("\n") if line.strip()]
-        df_raw = pd.DataFrame(rows)
-        st.success("PDF content extracted. Please review below.")
+        try:
+            with pdfplumber.open(pdf_file) as pdf:
+                pages_text = []
+                for page in pdf:
+                    page_text = page.extract_text()
+                    if page_text:
+                        pages_text.append(page_text)
+                text = "\n".join(pages_text)
+            rows = [line.split("\t") for line in text.split("\n") if line.strip()]
+            df_raw = pd.DataFrame(rows)
+            st.success("PDF content extracted. Please review below.")
+        except Exception as e:
+            st.error(f"Failed to extract PDF content: {e}")
 
 elif input_method == "Upload Image (PNG/JPG)":
     image_file = st.file_uploader("Upload a scanned electoral register image (PNG or JPG)", type=["png", "jpg", "jpeg"])
