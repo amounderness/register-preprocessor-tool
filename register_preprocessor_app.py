@@ -2,6 +2,8 @@ import streamlit as st
 import pandas as pd
 import re
 import pdfplumber
+import pytesseract
+from PIL import Image
 import io
 
 # -------------------------
@@ -16,7 +18,7 @@ This tool helps campaigners convert a raw electoral register into a clean, machi
 - 📨 Postal vote tracking
 - 📊 Voter contact recording
 
-✅ Upload a CSV or PDF register, or paste table data
+✅ Upload a CSV, PDF, or scanned image
 ✅ The app will identify and clean key fields
 ✅ Export the cleaned register for use in other tools
 """)
@@ -24,7 +26,7 @@ This tool helps campaigners convert a raw electoral register into a clean, machi
 # -------------------------
 # Upload or Paste Input
 # -------------------------
-input_method = st.radio("Select Input Method:", ["Upload CSV", "Upload PDF", "Paste Table"], horizontal=True)
+input_method = st.radio("Select Input Method:", ["Upload CSV", "Upload PDF", "Upload Image (PNG/JPG)", "Paste Table"], horizontal=True)
 
 if input_method == "Upload CSV":
     uploaded_file = st.file_uploader("Upload raw electoral register CSV", type=["csv"])
@@ -40,6 +42,15 @@ elif input_method == "Upload PDF":
         rows = [line.split("\t") for line in text.split("\n") if line.strip()]
         df_raw = pd.DataFrame(rows)
         st.success("PDF content extracted. Please review below.")
+
+elif input_method == "Upload Image (PNG/JPG)":
+    image_file = st.file_uploader("Upload a scanned electoral register image (PNG or JPG)", type=["png", "jpg", "jpeg"])
+    if image_file:
+        image = Image.open(image_file)
+        ocr_text = pytesseract.image_to_string(image)
+        rows = [line.split("\t") for line in ocr_text.split("\n") if line.strip()]
+        df_raw = pd.DataFrame(rows)
+        st.success("Image scanned and text extracted. Please review below.")
 
 elif input_method == "Paste Table":
     pasted = st.text_area("Paste your register table below:")
