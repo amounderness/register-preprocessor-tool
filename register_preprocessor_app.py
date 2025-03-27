@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 import re
+import pdfplumber
+import io
 
 # -------------------------
 # Title and Instructions
@@ -14,7 +16,7 @@ This tool helps campaigners convert a raw electoral register into a clean, machi
 - 📨 Postal vote tracking
 - 📊 Voter contact recording
 
-✅ Upload a CSV or paste data below
+✅ Upload a CSV or PDF register, or paste table data
 ✅ The app will identify and clean key fields
 ✅ Export the cleaned register for use in other tools
 """)
@@ -22,19 +24,28 @@ This tool helps campaigners convert a raw electoral register into a clean, machi
 # -------------------------
 # Upload or Paste Input
 # -------------------------
-input_method = st.radio("Select Input Method:", ["Upload CSV", "Paste Table"], horizontal=True)
+input_method = st.radio("Select Input Method:", ["Upload CSV", "Upload PDF", "Paste Table"], horizontal=True)
 
 if input_method == "Upload CSV":
-    uploaded_file = st.file_uploader("Upload raw electoral register CSV", type=["csv"]) 
+    uploaded_file = st.file_uploader("Upload raw electoral register CSV", type=["csv"])
     if uploaded_file:
         df_raw = pd.read_csv(uploaded_file)
-        st.success("File uploaded successfully.")
+        st.success("CSV file uploaded successfully.")
+
+elif input_method == "Upload PDF":
+    pdf_file = st.file_uploader("Upload scanned or digital electoral register PDF", type=["pdf"])
+    if pdf_file:
+        with pdfplumber.open(pdf_file) as pdf:
+            text = "\n".join([page.extract_text() for page in pdf if page.extract_text()])
+        rows = [line.split("\t") for line in text.split("\n") if line.strip()]
+        df_raw = pd.DataFrame(rows)
+        st.success("PDF content extracted. Please review below.")
 
 elif input_method == "Paste Table":
     pasted = st.text_area("Paste your register table below:")
     if pasted:
         try:
-            df_raw = pd.read_csv(pd.compat.StringIO(pasted))
+            df_raw = pd.read_csv(io.StringIO(pasted))
             st.success("Table parsed successfully.")
         except:
             st.error("Could not parse pasted table. Make sure it's comma-separated.")
