@@ -31,6 +31,8 @@ This tool helps campaigners convert a raw electoral register into a clean, machi
 # -------------------------
 input_method = st.radio("Select Input Method:", ["Upload CSV", "Upload PDF", "Upload Image (PNG/JPG)", "Paste Table"], horizontal=True)
 
+show_debug = st.checkbox("Show Debug Output (For developers only)", value=False)
+
 if input_method == "Upload CSV":
     uploaded_file = st.file_uploader("Upload raw electoral register CSV", type=["csv"])
     if uploaded_file:
@@ -57,8 +59,12 @@ elif input_method == "Upload PDF":
             st.text("\n".join(lines[:30]))
 
             extracted = []
-            for line in lines:
+            debug_lines = []
+
+            for idx, line in enumerate(lines):
                 parts = [part.strip() for part in re.split(r'\s{2,}', line)]
+                debug_msg = f"Line {idx+1}: '{line}' → Split into {len(parts)} parts."
+
                 if len(parts) >= 3:
                     try:
                         elector_number = parts[0]
@@ -77,8 +83,18 @@ elif input_method == "Upload PDF":
                             address = parts[2] if len(parts) > 2 else ""
 
                         extracted.append([elector_number, marker, name, address])
-                    except:
-                        continue
+                        debug_msg += " ✅ Parsed"
+                    except Exception as err:
+                        debug_msg += f" ❌ Failed to parse - {err}"
+                else:
+                    debug_msg += " ❌ Skipped - not enough fields"
+
+                if show_debug:
+                    debug_lines.append(debug_msg)
+
+            if show_debug and debug_lines:
+                st.markdown("### 🐞 Debug Output")
+                st.text("\n".join(debug_lines))
 
             if extracted:
                 df_raw = pd.DataFrame(extracted, columns=["Elector Number", "Marker", "Name", "Address"])
