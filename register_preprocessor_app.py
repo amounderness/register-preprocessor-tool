@@ -42,8 +42,7 @@ elif input_method == "Upload PDF":
         try:
             with pdfplumber.open(pdf_file) as pdf:
                 pages_text = []
-                for i in range(len(pdf.pages)):
-                    page = pdf.pages[i]
+                for page in pdf.pages:
                     page_text = page.extract_text()
                     if page_text:
                         pages_text.append(page_text)
@@ -52,9 +51,26 @@ elif input_method == "Upload PDF":
             if not text.strip():
                 raise ValueError("No extractable text found in PDF. Attempting OCR fallback.")
 
-            rows = [line.split("\t") for line in text.split("\n") if line.strip()]
-            df_raw = pd.DataFrame(rows)
-            st.success("PDF content extracted. Please review below.")
+            lines = [line.strip() for line in text.split("\n") if line.strip()]
+            st.markdown("### 📄 Extracted Lines from PDF")
+            st.text("\n".join(lines[:30]))
+
+            pattern = re.compile(r'^(\w+)\s+(\d+)\s+(\d+)\s+(\w?)\s+(.*?),\s+(.*?)\s+(.*?)\s+(FY\d\s\w{2})$')
+            extracted = []
+            for line in lines:
+                match = pattern.match(line)
+                if match:
+                    extracted.append(match.groups())
+
+            if extracted:
+                df_raw = pd.DataFrame(extracted, columns=[
+                    "Elector Number Prefix", "Elector Number", "Elector Number Suffix", "Marker",
+                    "Surname", "Forename", "Address 1", "Postcode"])
+                df_raw["Name"] = df_raw["Surname"] + ", " + df_raw["Forename"]
+                df_raw["Elector Marker Type"] = df_raw["Marker"].apply(lambda x: translate_marker(x))
+                st.success("Structured data extracted from PDF.")
+            else:
+                st.warning("Could not parse PDF lines into structured register format.")
 
         except Exception as e:
             try:
@@ -114,70 +130,28 @@ def translate_marker(marker):
         output.append(mapping.get(char, f"Unknown ({char})"))
     return ", ".join(output)
 
-def detect_column(possible_names, columns, exact_match=False):
-    for col in columns:
-        if not isinstance(col, str):
-            continue
-        for name in possible_names:
-            if exact_match:
-                if name.lower() == col.lower():
-                    return col
-            else:
-                if name.lower() in col.lower():
-                    return col
-    return None
-
 # -------------------------
 # Process and Export
 # -------------------------
 if 'df_raw' in locals():
-    cols = df_raw.columns.tolist()
+    try:
+        if "Elector Number" not in df_raw.columns and all(col in df_raw.columns for col in ["Elector Number Prefix", "Elector Number", "Elector Number Suffix"]):
+            df_raw['Elector Number'] = df_raw['Elector Number Prefix'].astype(str).str.strip() + "." + \
+                                        df_raw['Elector Number'].astype(str).str.strip() + "." + \
+                                        df_raw['Elector Number Suffix'].astype(str).str.strip()
 
-    full_elector_col = detect_column(['full elector number'], cols, exact_match=True)
-    prefix_col = detect_column(['elector number prefix'], cols, exact_match=True)
-    number_col = detect_column(['elector number'], [col for col in cols if isinstance(col, str) and col != prefix_col], exact_match=True)
-    suffix_col = detect_column(['elector number suffix'], cols, exact_match=True)
-    marker_col = detect_column(['marker', 'franchise'], cols)
-    name_col = detect_column(['name'], cols)
-    postcode_col = detect_column(['postcode'], cols)
-    address1_col = detect_column(['address 1'], cols)
-    address2_col = detect_column(['address 2'], cols)
-
-    if not all([marker_col, name_col, postcode_col, address1_col]):
-        st.warning("Missing one or more expected columns. Please check your input file.")
-    else:
-        if full_elector_col:
-            df_raw['Elector Number'] = df_raw[full_elector_col].astype(str).str.strip()
-            df_raw['Polling District'] = df_raw['Elector Number'].str.extract(r'^(\w+)')[0]
-        elif prefix_col and number_col and suffix_col:
-            prefix_vals = df_raw[prefix_col].astype(str).str.strip()
-            number_vals = df_raw[number_col].astype(str).str.strip()
-            suffix_vals = df_raw[suffix_col].astype(str).str.strip()
-
-            df_raw['Elector Number'] = [
-                f"{p}.{n}.{s}" if all([p, n, s]) else ""
-                for p, n, s in zip(prefix_vals, number_vals, suffix_vals)
-            ]
-            df_raw['Polling District'] = prefix_vals
-        else:
-            st.warning("Cannot determine Elector Number from the input file. Please check the column headers.")
-
-        df_raw['Elector Marker Type'] = df_raw[marker_col].apply(translate_marker)
-
-        keep_cols = [
-            'Elector Number', 'Polling District', name_col, postcode_col,
-            address1_col, address2_col, 'Elector Marker Type'
-        ]
-
-        keep_cols = [col for col in keep_cols if col in df_raw.columns]  # Ensure all exist
-        df_clean = df_raw[keep_cols].copy()
+        if "Polling District" not in df_raw.columns:
+            df_raw['Polling District'] = df_raw['Elector Number Prefix']
 
         st.markdown("### 🧾 Cleaned Electoral Register")
-        st.dataframe(df_clean.head(20))
+        st.dataframe(df_raw.head(20))
 
         st.download_button(
             label="📥 Download Clean CSV",
-            data=df_clean.to_csv(index=False).encode('utf-8'),
+            data=df_raw.to_csv(index=False).encode('utf-8'),
             file_name="Clean_Electoral_Register.csv",
             mime="text/csv"
         )
+
+    except Exception as e:
+        st.warning("Missing one or more expected columns. Please check your input file.")
