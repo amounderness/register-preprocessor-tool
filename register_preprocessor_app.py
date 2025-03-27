@@ -7,6 +7,7 @@ from PIL import Image
 import io
 import platform
 import subprocess
+from datetime import datetime
 
 # -------------------------
 # Title and Instructions
@@ -58,20 +59,34 @@ elif input_method == "Upload PDF":
             extracted = []
             for line in lines:
                 parts = [part.strip() for part in re.split(r'\s{2,}', line)]
-                if len(parts) >= 5:
+                if len(parts) >= 4:
                     try:
-                        # Basic smart splitting for sample formats
                         elector_number = parts[0]
-                        marker = parts[1] if re.fullmatch(r'[A-Z]{1,3}', parts[1]) else ""
-                        name = parts[2] if marker else parts[1]
-                        address = parts[3] if marker else parts[2]
-                        extracted.append([elector_number, marker, name, address])
+                        possible_marker = parts[1]
+
+                        date_pattern = r'\d{2}/\d{2}/\d{4}'
+                        if re.match(date_pattern, possible_marker):
+                            marker = possible_marker
+                            name = parts[2]
+                            address = parts[3]
+                            translated_marker = f"Will become eligible to vote on {marker}"
+                        elif re.fullmatch(r'[A-Z]{1,3}', possible_marker):
+                            marker = possible_marker
+                            name = parts[2]
+                            address = parts[3]
+                            translated_marker = translate_marker(marker)
+                        else:
+                            marker = ""
+                            name = possible_marker
+                            address = parts[2]
+                            translated_marker = ""
+
+                        extracted.append([elector_number, marker, name, address, translated_marker])
                     except:
                         continue
 
             if extracted:
-                df_raw = pd.DataFrame(extracted, columns=["Elector Number", "Marker", "Name", "Address"])
-                df_raw["Elector Marker Type"] = df_raw["Marker"].apply(lambda x: translate_marker(x))
+                df_raw = pd.DataFrame(extracted, columns=["Elector Number", "Marker", "Name", "Address", "Elector Marker Type"])
                 st.success("Structured data extracted from PDF.")
             else:
                 st.warning("Could not parse PDF lines into structured register format.")
