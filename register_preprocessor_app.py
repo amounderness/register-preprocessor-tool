@@ -91,7 +91,12 @@ if 'df_raw' in locals():
             prefix_vals = df_raw[prefix_col].astype(str).str.strip()
             number_vals = df_raw[number_col].astype(str).str.strip()
             suffix_vals = df_raw[suffix_col].astype(str).str.strip()
-            df_raw['Elector Number'] = [f"{p}.{n}.{s}" for p, n, s in zip(prefix_vals, number_vals, suffix_vals)]
+
+            # Correct logic: only include each part once
+            df_raw['Elector Number'] = [
+                f"{p}.{n}.{s}" if (p and n and s and p != n) else f"{p}.{s}"
+                for p, n, s in zip(prefix_vals, number_vals, suffix_vals)
+            ]
             df_raw['Polling District'] = prefix_vals
         else:
             st.warning("Cannot determine Elector Number from the input file. Please check the column headers.")
