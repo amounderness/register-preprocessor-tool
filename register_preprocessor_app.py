@@ -42,7 +42,8 @@ elif input_method == "Upload PDF":
         try:
             with pdfplumber.open(pdf_file) as pdf:
                 pages_text = []
-                for page in pdf:
+                for i in range(len(pdf.pages)):
+                    page = pdf.pages[i]
                     page_text = page.extract_text()
                     if page_text:
                         pages_text.append(page_text)
