@@ -55,18 +55,22 @@ elif input_method == "Upload PDF":
             st.markdown("### 📄 Extracted Lines from PDF")
             st.text("\n".join(lines[:30]))
 
-            pattern = re.compile(r'^(\w+)\s+(\d+)\s+(\d+)\s+(\w?)\s+(.*?),\s+(.*?)\s+(.*?)\s+(FY\d\s\w{2})$')
             extracted = []
             for line in lines:
-                match = pattern.match(line)
-                if match:
-                    extracted.append(match.groups())
+                parts = [part.strip() for part in re.split(r'\s{2,}', line)]
+                if len(parts) >= 5:
+                    try:
+                        # Basic smart splitting for sample formats
+                        elector_number = parts[0]
+                        marker = parts[1] if re.fullmatch(r'[A-Z]{1,3}', parts[1]) else ""
+                        name = parts[2] if marker else parts[1]
+                        address = parts[3] if marker else parts[2]
+                        extracted.append([elector_number, marker, name, address])
+                    except:
+                        continue
 
             if extracted:
-                df_raw = pd.DataFrame(extracted, columns=[
-                    "Elector Number Prefix", "Elector Number", "Elector Number Suffix", "Marker",
-                    "Surname", "Forename", "Address 1", "Postcode"])
-                df_raw["Name"] = df_raw["Surname"] + ", " + df_raw["Forename"]
+                df_raw = pd.DataFrame(extracted, columns=["Elector Number", "Marker", "Name", "Address"])
                 df_raw["Elector Marker Type"] = df_raw["Marker"].apply(lambda x: translate_marker(x))
                 st.success("Structured data extracted from PDF.")
             else:
@@ -135,13 +139,8 @@ def translate_marker(marker):
 # -------------------------
 if 'df_raw' in locals():
     try:
-        if "Elector Number" not in df_raw.columns and all(col in df_raw.columns for col in ["Elector Number Prefix", "Elector Number", "Elector Number Suffix"]):
-            df_raw['Elector Number'] = df_raw['Elector Number Prefix'].astype(str).str.strip() + "." + \
-                                        df_raw['Elector Number'].astype(str).str.strip() + "." + \
-                                        df_raw['Elector Number Suffix'].astype(str).str.strip()
-
-        if "Polling District" not in df_raw.columns:
-            df_raw['Polling District'] = df_raw['Elector Number Prefix']
+        if "Elector Number" in df_raw.columns:
+            df_raw['Polling District'] = df_raw['Elector Number'].str.extract(r'^(\w+)')[0]
 
         st.markdown("### 🧾 Cleaned Electoral Register")
         st.dataframe(df_raw.head(20))
