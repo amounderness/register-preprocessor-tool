@@ -71,28 +71,31 @@ def detect_column(possible_names, columns):
 if 'df_raw' in locals():
     cols = df_raw.columns.tolist()
 
-    prefix_col = detect_column(['prefix', 'ward'], cols)
-    number_col = detect_column(['elector number', 'number'], cols)
-    suffix_col = detect_column(['suffix'], cols)
+    full_elector_col = detect_column(['full elector number'], cols)
+    prefix_col = detect_column(['elector number prefix', 'prefix', 'ward'], cols)
+    number_col = detect_column(['elector number'], cols)
+    suffix_col = detect_column(['elector number suffix', 'suffix'], cols)
     marker_col = detect_column(['marker', 'franchise'], cols)
     name_col = detect_column(['name'], cols)
     postcode_col = detect_column(['postcode'], cols)
     address1_col = detect_column(['address 1'], cols)
     address2_col = detect_column(['address 2'], cols)
 
-    if not all([prefix_col, number_col, suffix_col, marker_col, name_col, postcode_col, address1_col]):
+    if not all([marker_col, name_col, postcode_col, address1_col]):
         st.warning("Missing one or more expected columns. Please check your input file.")
     else:
-        prefix_vals = df_raw[prefix_col].astype(str).str.strip()
-        number_vals = df_raw[number_col].astype(str).str.strip()
-        suffix_vals = df_raw[suffix_col].astype(str).str.strip()
+        if full_elector_col:
+            df_raw['Elector Number'] = df_raw[full_elector_col].astype(str).str.strip()
+            df_raw['Polling District'] = df_raw['Elector Number'].str.extract(r'^(\w+)')[0]
+        elif prefix_col and number_col and suffix_col:
+            prefix_vals = df_raw[prefix_col].astype(str).str.strip()
+            number_vals = df_raw[number_col].astype(str).str.strip()
+            suffix_vals = df_raw[suffix_col].astype(str).str.strip()
+            df_raw['Elector Number'] = [f"{p}.{n}.{s}" for p, n, s in zip(prefix_vals, number_vals, suffix_vals)]
+            df_raw['Polling District'] = prefix_vals
+        else:
+            st.warning("Cannot determine Elector Number from the input file. Please check the column headers.")
 
-        # Properly combine Elector Number as Prefix.Number.Suffix
-        df_raw['Elector Number'] = [
-            f"{p}.{n}.{s}" for p, n, s in zip(prefix_vals, number_vals, suffix_vals)
-        ]
-
-        df_raw['Polling District'] = df_raw[prefix_col].astype(str).str.strip()
         df_raw['Elector Marker Type'] = df_raw[marker_col].apply(translate_marker)
 
         keep_cols = [
