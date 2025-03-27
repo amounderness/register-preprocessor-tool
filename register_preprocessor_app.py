@@ -13,11 +13,11 @@ from datetime import datetime
 # Title and Instructions
 # -------------------------
 st.set_page_config(page_title="Register Pre-Processor", layout="wide")
-st.title("🧹 Electoral Register Pre-Processor")
+st.title("🛉 Electoral Register Pre-Processor")
 
 st.markdown("""
 This tool helps campaigners convert a raw electoral register into a clean, machine-readable format for further use in:
-- 🛣️ Route planning
+- 🚣️ Route planning
 - 📨 Postal vote tracking
 - 📊 Voter contact recording
 
@@ -63,6 +63,8 @@ elif input_method == "Upload PDF":
 
             for idx, line in enumerate(lines):
                 parts = [part.strip() for part in re.split(r'\s{2,}', line)]
+                if len(parts) == 1:
+                    parts = [p.strip() for p in line.split(",") if p.strip()]
                 debug_msg = f"Line {idx+1}: '{line}' → Split into {len(parts)} parts."
 
                 if len(parts) >= 3:
@@ -93,7 +95,7 @@ elif input_method == "Upload PDF":
                     debug_lines.append(debug_msg)
 
             if show_debug and debug_lines:
-                st.markdown("### 🐞 Debug Output")
+                st.markdown("### 🔞 Debug Output")
                 st.text("\n".join(debug_lines))
 
             if extracted:
@@ -172,11 +174,11 @@ if 'df_raw' in locals():
         if "Elector Number" in df_raw.columns:
             df_raw['Polling District'] = df_raw['Elector Number'].str.extract(r'^(\w+)')[0]
 
-        st.markdown("### 🧾 Cleaned Electoral Register")
+        st.markdown("### 📜 Cleaned Electoral Register")
         st.dataframe(df_raw.head(20))
 
         st.download_button(
-            label="📥 Download Clean CSV",
+            label="📅 Download Clean CSV",
             data=df_raw.to_csv(index=False).encode('utf-8'),
             file_name="Clean_Electoral_Register.csv",
             mime="text/csv"
