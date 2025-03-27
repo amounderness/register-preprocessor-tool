@@ -116,6 +116,8 @@ def translate_marker(marker):
 
 def detect_column(possible_names, columns, exact_match=False):
     for col in columns:
+        if not isinstance(col, str):
+            continue
         for name in possible_names:
             if exact_match:
                 if name.lower() == col.lower():
@@ -133,7 +135,7 @@ if 'df_raw' in locals():
 
     full_elector_col = detect_column(['full elector number'], cols, exact_match=True)
     prefix_col = detect_column(['elector number prefix'], cols, exact_match=True)
-    number_col = detect_column(['elector number'], [col for col in cols if col != prefix_col], exact_match=True)
+    number_col = detect_column(['elector number'], [col for col in cols if isinstance(col, str) and col != prefix_col], exact_match=True)
     suffix_col = detect_column(['elector number suffix'], cols, exact_match=True)
     marker_col = detect_column(['marker', 'franchise'], cols)
     name_col = detect_column(['name'], cols)
