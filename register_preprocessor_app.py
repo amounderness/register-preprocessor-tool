@@ -40,7 +40,7 @@ elif input_method == "Paste Table":
             st.error("Could not parse pasted table. Make sure it's comma-separated.")
 
 # -------------------------
-# Define Cleaning Logic
+# Define Helper Functions
 # -------------------------
 def extract_street(address):
     if pd.isna(address): return ""
@@ -63,23 +63,46 @@ def translate_marker(marker):
         output.append(mapping.get(char, f"Unknown ({char})"))
     return ", ".join(output)
 
+def detect_column(possible_names, columns):
+    for name in possible_names:
+        for col in columns:
+            if name.lower() in col.lower():
+                return col
+    return None
+
 # -------------------------
 # Process and Export
 # -------------------------
 if 'df_raw' in locals():
-    expected_cols = ['Elector Number Prefix', 'Elector Number', 'Elector Number Suffix', 'Elector Markers', 'Name', 'Postcode', 'Address 1']
-    available_cols = df_raw.columns.tolist()
-    missing_cols = [col for col in expected_cols if col not in available_cols]
+    cols = df_raw.columns.tolist()
 
-    if missing_cols:
-        st.warning(f"Missing expected columns: {missing_cols}")
+    prefix_col = detect_column(['prefix', 'ward'], cols)
+    number_col = detect_column(['number'], cols)
+    suffix_col = detect_column(['suffix'], cols)
+    marker_col = detect_column(['marker', 'franchise'], cols)
+    name_col = detect_column(['name'], cols)
+    postcode_col = detect_column(['postcode'], cols)
+    address1_col = detect_column(['address 1'], cols)
+    address2_col = detect_column(['address 2'], cols)
+
+    if not all([prefix_col, number_col, suffix_col, marker_col, name_col, postcode_col, address1_col]):
+        st.warning("Missing one or more expected columns. Please check your input file.")
     else:
-        df_raw['Elector Marker Type'] = df_raw['Elector Markers'].apply(translate_marker)
-        df_raw['Street'] = df_raw['Address 1'].apply(extract_street)
-        df_raw['Address'] = df_raw['Address 1']
+        df_raw['Elector Number'] = df_raw[prefix_col].astype(str).str.strip() + "." + \
+                                    df_raw[number_col].astype(str).str.strip() + "." + \
+                                    df_raw[suffix_col].astype(str).str.strip()
 
-        df_clean = df_raw.copy()
-        df_clean = df_clean[expected_cols + ['Elector Marker Type', 'Street', 'Address']]
+        df_raw['Elector Marker Type'] = df_raw[marker_col].apply(translate_marker)
+        df_raw['Street'] = df_raw[address1_col].apply(extract_street)
+        df_raw['Address'] = df_raw[address1_col]
+
+        keep_cols = [
+            'Elector Number', name_col, postcode_col, address1_col, address2_col,
+            'Elector Marker Type', 'Street', 'Address'
+        ]
+
+        keep_cols = [col for col in keep_cols if col in df_raw.columns]  # Ensure all exist
+        df_clean = df_raw[keep_cols].copy()
 
         st.markdown("### 🧾 Cleaned Electoral Register")
         st.dataframe(df_clean.head(20))
