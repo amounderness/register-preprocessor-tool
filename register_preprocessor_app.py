@@ -42,11 +42,6 @@ elif input_method == "Paste Table":
 # -------------------------
 # Define Helper Functions
 # -------------------------
-def extract_street(address):
-    if pd.isna(address): return ""
-    parts = address.split(',')
-    return parts[-1].strip() if len(parts) > 1 else address.strip()
-
 def translate_marker(marker):
     if pd.isna(marker): return "Eligible for all local elections"
     marker = marker.strip().upper()
@@ -88,17 +83,22 @@ if 'df_raw' in locals():
     if not all([prefix_col, number_col, suffix_col, marker_col, name_col, postcode_col, address1_col]):
         st.warning("Missing one or more expected columns. Please check your input file.")
     else:
-        df_raw['Elector Number'] = df_raw[prefix_col].astype(str).str.strip() + "." + \
-                                    df_raw[number_col].astype(str).str.strip() + "." + \
-                                    df_raw[suffix_col].astype(str).str.strip()
+        prefix_vals = df_raw[prefix_col].astype(str).str.strip()
+        number_vals = df_raw[number_col].astype(str).str.strip()
+        suffix_vals = df_raw[suffix_col].astype(str).str.strip()
 
+        # Avoid duplicate values in Elector Number
+        df_raw['Elector Number'] = [
+            f"{p}.{n}.{s}" if p != n else f"{p}.{s}"
+            for p, n, s in zip(prefix_vals, number_vals, suffix_vals)
+        ]
+
+        df_raw['Polling District'] = df_raw[prefix_col].astype(str).str.strip()
         df_raw['Elector Marker Type'] = df_raw[marker_col].apply(translate_marker)
-        df_raw['Street'] = df_raw[address1_col].apply(extract_street)
-        df_raw['Address'] = df_raw[address1_col]
 
         keep_cols = [
-            'Elector Number', name_col, postcode_col, address1_col, address2_col,
-            'Elector Marker Type', 'Street', 'Address'
+            'Elector Number', 'Polling District', name_col, postcode_col,
+            address1_col, address2_col, 'Elector Marker Type'
         ]
 
         keep_cols = [col for col in keep_cols if col in df_raw.columns]  # Ensure all exist
